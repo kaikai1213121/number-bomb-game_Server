@@ -160,9 +160,12 @@
   // --- 渲染 ----------------------------------------------------------------
   function render(state) {
     currentPhase = state.phase;
-    showScreen(state.phase);
 
-    switch (state.phase) {
+    // 未加入房间的玩家始终显示主界面，不受全局 phase 影响
+    var displayPhase = state.you && state.you.inRoom ? state.phase : "idle";
+    showScreen(displayPhase);
+
+    switch (displayPhase) {
       case "idle":
         renderIdle(state);
         break;
