@@ -214,7 +214,7 @@
     const game = state.game || {};
     const players = (state.room && state.room.players) || [];
 
-    el.rangeText.textContent = `${game.left} - ${game.right}`;
+    el.rangeText.textContent = `${game.left + 1} - ${game.right - 1}`;
     el.turnCount.textContent = game.turnCount || 0;
 
     if (game.lastGuess) {
@@ -230,11 +230,11 @@
     if (game.isYourTurn) {
       el.turnTip.textContent = "轮到你了，请输入一个数字";
       el.turnTip.classList.add("yours");
-      el.guessLabel.textContent = `请输入从 ${game.left} - ${game.right}`;
+      el.guessLabel.textContent = `请输入从 ${game.left + 1} - ${game.right - 1}`;
       el.guessField.hidden = false;
       el.guessBtn.hidden = false;
-      el.guessInput.min = game.left;
-      el.guessInput.max = game.right;
+      el.guessInput.min = game.left + 1;
+      el.guessInput.max = game.right - 1;
       el.guessInput.value = "";
       el.guessInput.disabled = false;
       el.guessBtn.disabled = false;

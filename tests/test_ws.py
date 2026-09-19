@@ -414,12 +414,12 @@ def test_guess_updates_bounds_and_turn(client: TestClient) -> None:
         for ws in (a, b, c):
             next_state(ws)
 
-        act(a, "guess", value=10)  # 10 < 42 → left = 11
+        act(a, "guess", value=10)  # 10 < 42 → left = 10（开区间）
         state_a = next_state(a)
         state_b = next_state(b)
         state_c = next_state(c)
 
-        assert (state_a["game"]["left"], state_a["game"]["right"]) == (11, 100)
+        assert (state_a["game"]["left"], state_a["game"]["right"]) == (10, 100)
         assert state_a["game"]["currentPlayerNickname"] == "乙"
         assert state_a["game"]["isYourTurn"] is False
         assert state_b["game"]["isYourTurn"] is True
@@ -431,18 +431,31 @@ def test_guess_updates_bounds_and_turn(client: TestClient) -> None:
         assert state_a["game"]["bomb"] is None  # 游戏过程中不泄露炸弹
 
 
-def test_boundary_values_are_accepted_over_ws(client: TestClient) -> None:
-    """闭区间语义：left 与 right 本身都是合法输入。"""
+def test_boundary_values_are_rejected_over_ws(client: TestClient) -> None:
+    """开区间语义：left 与 right 本身不可猜（它们已经安全）。"""
     with lobby(client, ["甲", "乙"]) as (a, b):
         act(a, "start_game")
         next_state(a)
         next_state(b)
 
+        # 猜测 0（left）应该被拒绝，开区间可猜范围是 1-99
         act(a, "guess", value=0)
-        assert next_state(a)["game"]["left"] == 1
+        error_a = next_error(a)
+        assert error_a["code"] == "OUT_OF_RANGE"
+        assert game_room.turn_count == 0
 
+        # 猜测 100（right）也应该被拒绝
         act(b, "guess", value=100)
-        assert next_state(b)["game"]["right"] == 99
+        error_b = next_error(b)
+        assert error_b["code"] == "OUT_OF_RANGE"
+        assert game_room.turn_count == 0
+
+        # left+1 和 right-1 是合法输入
+        act(a, "guess", value=1)
+        state_a = next_state(a)
+        assert state_a["game"]["left"] == 1
+        assert state_a["game"]["right"] == 100
+        assert state_a["game"]["turnCount"] == 1
 
 
 def test_out_of_range_does_not_advance_turn(client: TestClient) -> None:
@@ -455,7 +468,7 @@ def test_out_of_range_does_not_advance_turn(client: TestClient) -> None:
         act(a, "guess", value=999)
         error = next_error(a)
         assert error["code"] == "OUT_OF_RANGE"
-        assert "0 - 100" in error["message"]
+        assert "1 - 99" in error["message"]  # 开区间可猜范围
 
         # 服务端回合仍在甲手上，边界与计数均未变化
         assert game_room.current_player().nickname == "甲"
@@ -465,7 +478,7 @@ def test_out_of_range_does_not_advance_turn(client: TestClient) -> None:
         # 甲纠正后可以正常提交
         act(a, "guess", value=10)
         state = next_state(a)
-        assert state["game"]["left"] == 11
+        assert state["game"]["left"] == 10  # 开区间：left = guess
         assert state["game"]["turnCount"] == 1
 
 
@@ -475,13 +488,13 @@ def test_error_message_tracks_shrunk_bounds(client: TestClient) -> None:
         act(a, "start_game")
         next_state(a)
 
-        act(a, "guess", value=90)  # right → 89
+        act(a, "guess", value=90)  # 90 > bomb, right → 90（开区间）
         next_state(a)
 
         act(a, "guess", value=95)
         error = next_error(a)
         assert error["code"] == "OUT_OF_RANGE"
-        assert "0 - 89" in error["message"]
+        assert "1 - 89" in error["message"]  # 开区间可猜范围：left+1 到 right-1
 
 
 def test_not_your_turn_rejected(client: TestClient) -> None:
@@ -516,7 +529,7 @@ def test_string_integer_accepted_over_ws(client: TestClient) -> None:
 
         act(a, "guess", value="10")
         state = next_state(a)
-        assert state["game"]["left"] == 11
+        assert state["game"]["left"] == 10  # 开区间：left = guess
         assert state["game"]["turnCount"] == 1
 
 
@@ -813,14 +826,14 @@ def test_full_game_reaches_boom(client: TestClient, fast_boom: None) -> None:
         for ws in sockets:
             next_state(ws)
 
-        # 炸弹固定为 42，按二分策略轮流逼近
+        # 炸弹固定为 42，按二分策略轮流逼近（开区间语义：guess → 新边界）
         scripted = [
-            (0, 50),    # > 42 → right = 49
-            (1, 20),    # < 42 → left = 21
-            (2, 40),    # < 42 → left = 41
-            (0, 45),    # > 42 → right = 44
-            (1, 41),    # < 42 → left = 42
-            (2, 43),    # > 42 → right = 42
+            (0, 50),    # > 42 → right = 50
+            (1, 20),    # < 42 → left = 20
+            (2, 40),    # < 42 → left = 40
+            (0, 45),    # > 42 → right = 45
+            (1, 41),    # < 42 → left = 41
+            (2, 43),    # > 42 → right = 43
             (0, BOMB),  # 命中
         ]
         for index, value in scripted[:-1]:
@@ -828,8 +841,8 @@ def test_full_game_reaches_boom(client: TestClient, fast_boom: None) -> None:
             for ws in sockets:
                 state = next_state(ws)
                 assert state["phase"] == "playing"
-            # 核心不变量：炸弹始终落在 [left, right] 内
-            assert game_room.left <= BOMB <= game_room.right
+            # 核心不变量：炸弹始终严格落在开区间 (left, right) 内
+            assert game_room.left < BOMB < game_room.right
             assert game_room.turn_count >= 1
 
         loser_index, value = scripted[-1]
@@ -856,22 +869,23 @@ def test_full_game_large_room_reaches_boom(client: TestClient, fast_boom: None) 
             assert state["game"]["right"] == 1000
 
         scripted = [
-            (0, 500),   # > 42 → right = 499
-            (1, 100),   # > 42 → right = 99
-            (2, 20),    # < 42 → left = 21
-            (3, 60),    # > 42 → right = 59
-            (4, 30),    # < 42 → left = 31
-            (0, 50),    # > 42 → right = 49
-            (1, 40),    # < 42 → left = 41
-            (2, 45),    # > 42 → right = 44
-            (3, 43),    # > 42 → right = 42
+            (0, 500),   # > 42 → right = 500
+            (1, 100),   # > 42 → right = 100
+            (2, 20),    # < 42 → left = 20
+            (3, 60),    # > 42 → right = 60
+            (4, 30),    # < 42 → left = 30
+            (0, 50),    # > 42 → right = 50
+            (1, 40),    # < 42 → left = 40
+            (2, 45),    # > 42 → right = 45
+            (3, 43),    # > 42 → right = 43
             (4, BOMB),  # 命中
         ]
         for index, value in scripted[:-1]:
             act(sockets[index], "guess", value=value)
             for ws in sockets:
                 next_state(ws)
-            assert game_room.left <= BOMB <= game_room.right
+            # 核心不变量：炸弹始终严格落在开区间 (left, right) 内
+            assert game_room.left < BOMB < game_room.right
 
         loser_index, value = scripted[-1]
         act(sockets[loser_index], "guess", value=value)

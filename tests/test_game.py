@@ -117,41 +117,62 @@ class TestTurnOrder:
 
 
 class TestBoundaryShrink:
-    """闭区间严格收缩，炸弹恒在 [left, right] 内。"""
+    """开区间严格收缩，炸弹恒在 (left, right) 内。"""
 
     def test_guess_lower_raises_left(self, room: GameRoom) -> None:
-        """猜的数小于炸弹 → 左边界抬到 guess + 1。"""
+        """猜的数小于炸弹 → 左边界抬到 guess（开区间语义）。"""
         room.join_lobby("a", "甲")
         room.start_game("a")
         room.guess("a", 10)
-        assert room.left == 11
+        assert room.left == 10
         assert room.right == 100
 
     def test_guess_higher_lowers_right(self, room: GameRoom) -> None:
-        """猜的数大于炸弹 → 右边界压到 guess - 1。"""
+        """猜的数大于炸弹 → 右边界压到 guess（开区间语义）。"""
         room.join_lobby("a", "甲")
         room.start_game("a")
         room.guess("a", 90)
         assert room.left == 0
-        assert room.right == 89
+        assert room.right == 90
 
     def test_bomb_stays_inside_range(self, room: GameRoom) -> None:
-        """每次收缩后炸弹仍在闭区间内 —— 核心不变量。"""
+        """每次收缩后炸弹仍在开区间内 —— 核心不变量。"""
         room.join_lobby("a", "甲")
         room.start_game("a")
         for value in (10, 90, 50, 45, 43):
             room.guess("a", value)
-            assert room.left <= room.bomb <= room.right
+            assert room.left < room.bomb < room.right
 
-    def test_boundary_values_are_guessable(self, room: GameRoom) -> None:
-        """闭区间语义：left 与 right 本身都是合法输入。"""
+    def test_boundary_values_are_not_guessable(self, room: GameRoom) -> None:
+        """开区间语义：left 与 right 本身不可猜（它们已经安全）。"""
         room.join_lobby("a", "甲")
         room.join_lobby("b", "乙")
         room.start_game("a")
 
-        room.guess("a", 0)   # 猜左边界，合法
+        # 猜测 0（left）应该被拒绝，因为开区间 (0, 100) 的可猜范围是 1-99
+        with pytest.raises(GameError) as exc_info:
+            room.guess("a", 0)
+        assert exc_info.value.code == ErrorCode.OUT_OF_RANGE
+
+        # 猜测 100（right）也应该被拒绝
+        with pytest.raises(GameError) as exc_info:
+            room.guess("b", 100)
+        assert exc_info.value.code == ErrorCode.OUT_OF_RANGE
+
+    def test_valid_guesses_near_boundary(self, room: GameRoom) -> None:
+        """开区间语义：left+1 与 right-1 是合法输入。"""
+        room.join_lobby("a", "甲")
+        room.join_lobby("b", "乙")
+        room.start_game("a")
+
+        # 猜测 1（left+1）是合法的
+        room.guess("a", 1)
         assert room.left == 1
-        room.guess("b", 100)  # 猜右边界，合法
+        assert room.right == 100
+
+        # 猜测 99（right-1）是合法的
+        room.guess("b", 99)
+        assert room.left == 1
         assert room.right == 99
 
     def test_interval_shrinks_at_least_one_per_turn(self, room: GameRoom) -> None:
@@ -160,7 +181,7 @@ class TestBoundaryShrink:
         room.join_lobby("b", "乙")
         room.start_game("a")
         before = room.right - room.left
-        room.guess("a", 0)
+        room.guess("a", 1)  # 开区间语义：猜测 left+1 是合法的
         assert (room.right - room.left) < before
 
     def test_game_terminates_within_finite_turns(self) -> None:
@@ -173,7 +194,8 @@ class TestBoundaryShrink:
             span = room.right - room.left
             turns = 0
             while room.phase is Phase.PLAYING and turns <= span + 1:
-                room.guess("a", rng.randint(room.left, room.right))
+                # 开区间语义：只能猜测 (left, right) 内的整数
+                room.guess("a", rng.randint(room.left + 1, room.right - 1))
                 turns += 1
             assert room.phase is Phase.BOOM, f"游戏未在有限回合内结束（{turns} 回合）"
             assert turns <= span + 1
@@ -203,10 +225,10 @@ class TestInvalidInput:
         """错误提示中的边界随收缩动态更新，与前端显示一致。"""
         room.join_lobby("a", "甲")
         room.start_game("a")
-        room.guess("a", 90)  # right → 89
+        room.guess("a", 90)  # 开区间：right → 90
         with pytest.raises(GameError) as info:
             room.guess("a", 95)
-        assert "0" in info.value.message and "89" in info.value.message
+        assert "1" in info.value.message and "89" in info.value.message
 
     @pytest.mark.parametrize("value", ["abc", "", None, 12.5, "12.5", [], {}])
     def test_non_integer_rejected(self, room: GameRoom, value: object) -> None:

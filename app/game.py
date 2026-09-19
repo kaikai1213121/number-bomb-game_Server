@@ -14,10 +14,11 @@
 
 核心不变量
 ----------
-炸弹数字 ``bomb`` 恒落在闭区间 ``[left, right]`` 内。每次合法且未命中的猜测都会
-让区间至少缩小 1（``left = guess + 1`` 或 ``right = guess - 1``），因此游戏必然
-在有限回合内结束，不会死循环；同时前端提示的「请输入从 left - right」与实际
-合法输入范围完全一致，不会出现按提示输入却被判非法的情况。
+炸弹数字 ``bomb`` 恒落在开区间 ``(left, right)`` 内（即 ``left < bomb < right``）。
+玩家可猜的范围也是 ``(left, right)``，即 ``left + 1`` 到 ``right - 1``。每次合法
+且未命中的猜测都会让区间至少缩小 1（``left = guess`` 或 ``right = guess``），因此
+游戏必然在有限回合内结束，不会死循环；同时前端提示的「请输入 left 到 right 之间的
+数字」与实际合法输入范围完全一致，不会出现按提示输入却被判非法的情况。
 """
 
 from __future__ import annotations
@@ -257,7 +258,8 @@ class GameRoom:
 
         self.player_count_snapshot = len(self.players)
         self.left, self.right = config.range_for_player_count(self.player_count_snapshot)
-        self.bomb = self._rng(self.left, self.right)
+        # 开区间语义：炸弹在 (left, right) 内部，即 left+1 到 right-1
+        self.bomb = self._rng(self.left + 1, self.right - 1)
         self.current_index = 0
         self.last_guess = None
         self.turn_count = 0
@@ -288,10 +290,11 @@ class GameRoom:
             raise GameError(ErrorCode.NOT_YOUR_TURN, "还没轮到你，请耐心等待")
 
         number = self._coerce_int(value)
-        if number < self.left or number > self.right:
+        # 开区间语义：可猜范围是 (left, right)，即 left+1 到 right-1
+        if number <= self.left or number >= self.right:
             raise GameError(
                 ErrorCode.OUT_OF_RANGE,
-                f"请输入 {self.left} - {self.right} 之间的整数",
+                f"请输入 {self.left + 1} - {self.right - 1} 之间的整数",
             )
 
         # 炸弹不变量校验放在计数自增之前，避免抛错时留下被污染的 turn_count。
@@ -318,11 +321,11 @@ class GameRoom:
                 boom_player_id=player_id,
             )
 
-        # 未命中：闭区间严格收缩，保证 bomb 始终落在 [left, right] 内
+        # 未命中：开区间严格收缩，保证 bomb 始终落在 (left, right) 内
         if number < bomb:
-            self.left = number + 1
+            self.left = number
         else:
-            self.right = number - 1
+            self.right = number
 
         self.last_guess = (self.display_name(player_id), number, GuessResult.SAFE)
         self._advance_turn()

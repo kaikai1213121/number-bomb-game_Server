@@ -62,10 +62,10 @@ def _env_optional_int(name: str, default: int | None) -> int | None:
 #: 人数阈值：玩家数 <= 该值时采用小范围
 SMALL_ROOM_MAX_PLAYERS: int = _env_int("BOMB_SMALL_ROOM_MAX_PLAYERS", 4)
 
-#: 小范围数字区间（闭区间）
+#: 小范围数字区间（开区间，炸弹在内部）
 SMALL_ROOM_RANGE: tuple[int, int] = _env_int_pair("BOMB_RANGE_SMALL", (0, 100))
 
-#: 大范围数字区间（闭区间）
+#: 大范围数字区间（开区间，炸弹在内部）
 LARGE_ROOM_RANGE: tuple[int, int] = _env_int_pair("BOMB_RANGE_LARGE", (0, 1000))
 
 
