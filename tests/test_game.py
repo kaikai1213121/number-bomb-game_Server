@@ -228,7 +228,7 @@ class TestInvalidInput:
         room.guess("a", 90)  # 开区间：right → 90
         with pytest.raises(GameError) as info:
             room.guess("a", 95)
-        assert "1" in info.value.message and "89" in info.value.message
+        assert "0 - 90" in info.value.message  # 显示开区间边界
 
     @pytest.mark.parametrize("value", ["abc", "", None, 12.5, "12.5", [], {}])
     def test_non_integer_rejected(self, room: GameRoom, value: object) -> None:

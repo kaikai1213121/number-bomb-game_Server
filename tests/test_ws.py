@@ -468,7 +468,7 @@ def test_out_of_range_does_not_advance_turn(client: TestClient) -> None:
         act(a, "guess", value=999)
         error = next_error(a)
         assert error["code"] == "OUT_OF_RANGE"
-        assert "1 - 99" in error["message"]  # 开区间可猜范围
+        assert "0 - 100" in error["message"]  # 开区间边界显示
 
         # 服务端回合仍在甲手上，边界与计数均未变化
         assert game_room.current_player().nickname == "甲"

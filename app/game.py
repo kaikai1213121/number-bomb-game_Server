@@ -294,7 +294,7 @@ class GameRoom:
         if number <= self.left or number >= self.right:
             raise GameError(
                 ErrorCode.OUT_OF_RANGE,
-                f"请输入 {self.left + 1} - {self.right - 1} 之间的整数",
+                f"请输入 {self.left} - {self.right} 之间的整数（边界值不可猜）",
             )
 
         # 炸弹不变量校验放在计数自增之前，避免抛错时留下被污染的 turn_count。
