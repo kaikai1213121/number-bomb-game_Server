@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>数字炸弹</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>💣 数字炸弹</h1>
+      <div class="conn" id="connStatus">连接中…</div>
+    </header>
+
+    <main class="app-main">
+      <!-- 主界面 -->
+      <section class="screen" id="screen-idle" hidden>
+        <div class="card">
+          <p class="lead">当下没有游戏进行中，输入你的微信昵称即可加入大厅。</p>
+          <label class="field">
+            <span>微信昵称</span>
+            <input id="nicknameInput" type="text" maxlength="20"
+                   placeholder="请输入微信昵称" autocomplete="off" />
+          </label>
+          <button class="btn btn-primary" id="joinBtn">加入游戏大厅</button>
+          <p class="hint">按加入先后顺序轮流猜数字，猜中炸弹的人输。</p>
+        </div>
+      </section>
+
+      <!-- 大厅 -->
+      <section class="screen" id="screen-lobby" hidden>
+        <div class="card">
+          <h2>游戏大厅</h2>
+          <p class="lead">已加入 <strong id="lobbyCount">0</strong> 人，等待开始</p>
+          <ul class="player-list" id="lobbyPlayers"></ul>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="startBtn">开始游戏</button>
+            <button class="btn btn-danger" id="closeBtn">关闭大厅</button>
+          </div>
+          <p class="hint">任意玩家点击「开始游戏」即进入对局。4 人及以下范围 0-100，超过 4 人范围 0-1000。</p>
+        </div>
+      </section>
+
+      <!-- 游戏中 -->
+      <section class="screen" id="screen-playing" hidden>
+        <div class="card">
+          <h2>游戏进行中</h2>
+          <div class="range-banner">
+            当前范围 <strong id="rangeText">0 - 100</strong>
+          </div>
+
+          <div id="turnPanel">
+            <p class="turn-tip" id="turnTip">等待其他玩家操作…</p>
+            <label class="field" id="guessField" hidden>
+              <span id="guessLabel">请输入从 0 - 100</span>
+              <input id="guessInput" type="number" inputmode="numeric"
+                     placeholder="输入一个整数" autocomplete="off" />
+            </label>
+            <button class="btn btn-primary" id="guessBtn" hidden>提交</button>
+          </div>
+
+          <div class="meta">
+            <div>回合数：<strong id="turnCount">0</strong></div>
+            <div id="lastGuessLine"></div>
+          </div>
+
+          <h3 class="sub-title">玩家顺序</h3>
+          <ul class="player-list" id="gamePlayers"></ul>
+          <button class="btn btn-ghost" id="closeInGameBtn">关闭大厅</button>
+        </div>
+      </section>
+
+      <!-- Boom -->
+      <section class="screen" id="screen-boom" hidden>
+        <div class="card boom-card">
+          <div class="boom-emoji">💥</div>
+          <h2 class="boom-title"><span id="boomNickname">玩家</span>，Boom！</h2>
+          <p class="lead">炸弹数字是 <strong id="boomNumber">-</strong></p>
+          <p class="countdown"><span id="boomCountdown">3</span> 秒后回到大厅</p>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast-host" id="toastHost"></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
