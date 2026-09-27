@@ -8,9 +8,16 @@
 (function () {
   "use strict";
 
+  // --- 主题管理 ------------------------------------------------------------
+  var savedTheme = localStorage.getItem("theme") || "dark";
+  if (savedTheme === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+
   // --- DOM 引用 ------------------------------------------------------------
   const el = {
     connStatus: document.getElementById("connStatus"),
+    themeToggle: document.getElementById("themeToggle"),
     screens: {
       idle: document.getElementById("screen-idle"),
       lobby: document.getElementById("screen-lobby"),
@@ -388,8 +395,21 @@
     if (ws) ws.close();
   });
 
+  // --- 主题切换 ------------------------------------------------------------
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    el.themeToggle.textContent = theme === "light" ? "☀️" : "🌙";
+    localStorage.setItem("theme", theme);
+  }
+
+  el.themeToggle.addEventListener("click", function () {
+    var current = document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(current === "light" ? "dark" : "light");
+  });
+
   // --- 启动 ----------------------------------------------------------------
   setJoinable(false);
   showScreen("idle");
+  applyTheme(savedTheme);
   connect();
 })();
